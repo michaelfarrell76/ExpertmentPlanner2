@@ -1,0 +1,32 @@
+{% extends "layout.html" %}
+{% block content %}
+
+<div id="page-wrapper">
+  <div class="container-fluid">
+    <div class="row"> <!-- Page Heading -->
+      <div class="col-lg-12">
+        <h1 class="page-header">
+          <center>Multiplexed Immunostaining Planner: Part 3 </center>
+        </h1>
+      </div>
+    </div>
+    
+    <br>
+    <div id="printableArea">
+      {{params.output | safe}}
+    </div>
+
+   <button type="button" onclick="printDiv('printableArea');" id = "print">Print Protocol</button>
+  </div> <!-- /.container-fluid -->
+</div> <!-- /#page-wrapper -->
+
+<script>
+function printDiv(divName) {
+     w=window.open();
+    w.document.write($('#printableArea').html());
+    w.print();
+    w.close()
+}
+</script>
+
+{% endblock %}

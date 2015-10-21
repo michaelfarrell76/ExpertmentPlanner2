@@ -1,0 +1,44 @@
+
+
+
+h3 {
+  margin: 0;
+  background-color: rgb(128,128,128); 
+  background-image: linear-gradient(bottom, rgb(128,128,128)  14%, rgb(80,80,80)  57%);
+  background-image: -o-linear-gradient(bottom, rgb(128,128,128)  14%, rgb(80,80,80)  57%);
+  background-image: -moz-linear-gradient(bottom, rgb(128,128,128)  14%, rgb(80,80,80)  57%);
+  background-image: -webkit-linear-gradient(bottom, rgb(128,128,128)  14%, rgb(80,80,80)  57%);
+  background-image: -ms-linear-gradient(bottom, rgb(128,128,128)  14%, rgb(80,80,80)  57%);
+}
+
+h3 a {
+  background: url("sprite.png") 15px 13px no-repeat;
+  display: block;
+  padding: 10px;
+  padding-left: 32px;
+  margin: 0;
+  color: #fff;
+  text-decoration: none;
+  font-weight: normal;
+  border-bottom: 1px solid rgba(128, 128, 128, 0.5);
+  text-shadow: 1px 1px 1px rgb(128,128,128);
+}
+h3:hover { background: rgb(176,176,176)  ; }
+h3.open  { background: rgb(0,0,0) ; }
+h3.open a { background-position: 13px -25px; }
+h3 + div { padding: 10px; }
+h2 + div,
+.example {
+  background: #fff;
+  overflow: hidden;
+  border-radius: 3px;
+  -moz-border-radius: 3px;
+  -webkit-border-radius: 3px;
+  margin-bottom: 20px;
+}
+
+/* Pre hide sections with JavaScript on
+--- */
+h3+div {
+  display: none;
+}

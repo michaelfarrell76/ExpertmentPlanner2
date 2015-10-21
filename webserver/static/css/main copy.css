@@ -1,0 +1,11 @@
+.scroll {
+	height: 350px;
+	overflow: auto;
+}
+.scrollshort {
+	height: 200px;
+	overflow: auto;
+}
+.table-striped > tbody > tr:nth-child(2n+1) > td, .table-striped > tbody > tr:nth-child(2n+1) > th {
+   background-color: #D3D3D3;
+}

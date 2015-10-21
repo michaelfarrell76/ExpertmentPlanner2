@@ -1,0 +1,495 @@
+{% extends "layout.html" %}
+{% block content %}
+
+<div id="page-wrapper">
+  <div class="container-fluid">
+    <!-- Page Heading -->
+    <div class="row"> 
+      <div class="col-lg-12">
+        <h1 class="page-header">
+          <center>Multiplexed Immunostaining Planner: Part 2</center>
+        </h1>
+      </div>
+    </div>
+    <!-- Main Container -->
+    <div class="container">
+
+      <!-- Header --> 
+      <div class="row"> 
+        <div class="col-md-6">
+          <center>
+            <h4 class="text-info">Chosen Primary Antibodies</h4>
+          </center>
+        </div>
+        <div class="col-md-6">
+          <center>
+            <h4 class="text-info">Chosen Secondary Antibodies</h4>
+          </center>
+        </div>
+      </div>
+
+      <div  class='dataframe_primary' style="display: none;">
+        {{data.primary_json | safe}}
+      </div>
+      <div  class='dataframe_secondary' style="display: none;">
+        {{data.secondary_json | safe}}
+      </div>
+
+
+
+      <!-- Tables --> 
+      <div class="row"> 
+        <div class="col-md-6">
+          <center>
+            <div class="scroll" >
+              <div class="dataTable_wrapper">
+                {{data.primary | safe}}
+              </div>
+            </div>
+          </center>
+        </div>
+        <div class="col-md-6">
+   
+            <div class="scroll" >
+              <div class="dataTable_wrapper">
+                {{data.secondary | safe}}
+              </div>
+            </div>
+
+        </div>
+      </div>
+
+      <br><br><br>
+      <form action="ProduceAntibody" method="get"  data-ajax="false">
+        <div class="row">
+          <div class="col-lg-12">
+            <div class="panel panel-default">
+              <div class="panel-heading">
+                <center>
+                  <h5 class="text-info">Choose your antibody matchings:</h5>
+                </center>
+              </div>
+              <!-- .panel-heading -->
+              <div class="panel-body">
+                <div class="panel-group">
+                  <div data-role="collapsible-set" data-content-theme="a" data-iconpos="right" id="set">
+                  </div>
+                </div>
+
+                <a id="add_row" class="btn btn-default pull-right">Add Another Solution</a>
+
+              </div>
+
+              <!-- .panel-body -->
+            </div>
+            <!-- /.panel -->
+          </div>
+          <!-- /.col-lg-12 -->
+        </div>
+        <!-- /.row -->
+        <!-- Submit --> 
+        <div class="row">
+          <center>
+            <button class="btn btn-primary btn-lg" id="contprotocol" type="submit">Next -></button>
+          </center>
+        </div>
+
+        <input type=hidden id="nsol" name="nsolution" value="1"/>
+        <input type=hidden id="rowlens" name="rowlens" value="[1]"/>
+        <input type=hidden id="wellsize" name="wellsize" value="{{data.wellsize}}"/>
+        <input type=hidden id="repnum" name="ReplicationNum" value="{{data.rep_num}}"/>
+        <input type=hidden id="volperwell" name="VolumePerWell" value="{{data.vol_per_well}}"/>
+      </form>
+
+      <br><br>
+
+    </div>
+    <!-- /.container-->
+  </div> 
+  <!-- /.container-fluid -->
+</div> 
+<!-- /#page-wrapper -->
+
+
+<script>
+var primary_hosts;
+var secondary_hosts ;
+var secondary_colors;
+var primary_names;
+var secondary_names;
+var primary_data;
+var secondary_data;
+
+var nsolution = 0;
+var sol_lens = [];
+
+var currentColors = [];
+var currentPrimarys = [];
+var currentSecondarys = [];
+
+
+
+
+
+
+function getPrimaryOptions(solnum, rownum){
+  var text = '';
+  var name;
+  var color = parseInt(currentColors[solnum - 1][rownum - 1]);
+  var possibles = removedup(getprimarys_fromantis(get_anti(getSecondarys_wColor(color))));
+  possibles = removeCross(possibles, solnum, rownum);
+  for (name in possibles){
+    text += '<option>' + possibles[name] + '</option>'; 
+  }
+  return text;
+}
+
+
+function changePrimary(solnum, rownum){
+
+  var opts = '<option selected = "selected">' + currentPrimarys[solnum - 1][rownum - 1] + '</option>';
+  if(currentPrimarys[solnum - 1][rownum - 1] != "None"){
+    opts += '<option>None</Option>';
+  }
+  if(currentColors[solnum - 1][rownum - 1] != "None"){
+    opts += getPrimaryOptions(solnum, rownum);
+  }
+
+  var id = buildId(rownum, solnum, "#primary");
+  $(id).empty().append(opts);
+}
+
+function getSecondaryOptions(solnum, rownum){
+  var text = '';
+  var name;
+  var color = parseInt(currentColors[solnum - 1][rownum - 1]);
+  var prim = currentPrimarys[solnum - 1][rownum - 1];
+  var possibles = getSecondarys_wColor(color);
+  possibles = cleanSec(possibles, prim);
+  possibles = removeCrossSec(possibles, solnum, rownum);
+  for (name in possibles){    
+    text += '<option>' + possibles[name] + '</option>';
+    
+  }
+
+  return text;
+}
+
+function cleanSec(possibles, prim){
+  var host = primary_data[prim]['Host'];
+  var good = [];
+  for (var item in possibles){
+    var against = secondary_data[possibles[item]]['Antibody Against'];
+    if (against == host){
+      good.push(possibles[item]);
+    }
+
+  }
+  return good;
+}
+
+
+function changeSecondary(solnum, rownum){
+  var opts = '<option selected = "selected">' + currentSecondarys[solnum - 1][rownum - 1] + '</option>';
+  if (currentSecondarys[solnum - 1][rownum - 1] != "None"){
+    opts += '<option>None</Option>';
+  }
+  if(currentPrimarys[solnum - 1][rownum - 1] != "None"){
+    opts += getSecondaryOptions(solnum, rownum);
+  }
+  var id = buildId(rownum, solnum, "#secondary");
+
+  $(id).empty().append(opts);
+}
+
+
+function getprimarys_fromantis(antis){
+  var name;
+  var curhost;
+  var primarys = [];
+  for (name in primary_names){
+    curhost = primary_data[primary_names[name]]['Host'];
+    if(-1 != $.inArray(curhost, antis)){
+      primarys.push(primary_names[name]);
+    }
+  }
+  return primarys;
+}
+
+function removedup(possible_prims){
+  var prims = [];
+  for (var name in possible_prims){
+    var add = true;
+    for (var i = 0; i < nsolution; i++){
+      if (-1 != $.inArray(possible_prims[name], currentPrimarys[i])){
+        add = false;
+      }
+    }
+    if(add){
+      prims.push(possible_prims[name]);
+    }
+
+  }
+  return prims;
+}
+
+function removeCross(possibles, solnum, rownum){
+  var hosts_used = getCurrentHosts(solnum);
+  var curname = currentPrimarys[solnum-1][rownum-1];
+  var host_now;
+  if(curname != "None"){
+    host_now = primary_data[curname]['Host'];
+    var index = $.inArray(host_now, hosts_used);
+    hosts_used.splice(index, 1);
+
+  }
+
+  var sec_hosts = getCurrentHostsSec(solnum);
+  hosts_used = hosts_used.concat(sec_hosts);
+  var good_items = [];
+  for (var item in possibles){
+    if(-1 == $.inArray(primary_data[possibles[item]]['Host'], hosts_used)){
+      good_items.push(possibles[item]);
+    }
+  }
+  return good_items;
+}
+
+function removeCrossSec(possibles, solnum, rownum){
+
+  var prim_hosts = getCurrentHosts(solnum);
+  var curname = currentPrimarys[solnum-1][rownum-1];
+  var host_now;
+  if(curname != "None"){
+    host_now = primary_data[curname]['Host'];
+    var index = $.inArray(host_now, prim_hosts);
+    prim_hosts.splice(index, 1);
+
+  }
+  var good_items = [];
+  for (var item in possibles){
+    if(-1 == $.inArray(secondary_data[possibles[item]]['Host'], prim_hosts)){
+      good_items.push(possibles[item]);
+    }
+  }
+  return good_items;
+}
+
+function getCurrentHostsSec(solnum){
+  var host;
+  var name;
+  var curhosts = [];
+  for(var i = 0; i < sol_lens[solnum-1]; i++){
+    name = currentSecondarys[solnum-1][i];
+    if (name != "None"){
+      host = secondary_data[name]['Host'];
+      curhosts.push(host);
+    }
+  }
+  return jQuery.unique(curhosts);
+}
+
+function getCurrentHosts(solnum){
+  var host;
+  var name;
+  var curhosts = [];
+  for(var i = 0; i < sol_lens[solnum-1]; i++){
+    name = currentPrimarys[solnum-1][i];
+    if (name != "None"){
+      host = primary_data[name]['Host'];
+      curhosts.push(host);
+    }
+  }
+  return jQuery.unique(curhosts);
+}
+
+function getSecondarys_wColor(color){
+  color = parseInt(color);
+  var name;
+  var secondarys = [];
+  for (name in secondary_names){
+    if(parseInt(secondary_data[secondary_names[name]]['Excitation']) == color){
+      secondarys.push(secondary_names[name]);
+    }
+  }
+  return secondarys;
+}
+
+function get_anti(secondarys){
+  var anti = [];
+  for (var name in secondarys){
+    anti.push(secondary_data[secondarys[name]]['Antibody Against']);
+  }
+  return jQuery.unique(anti);
+}
+
+
+function getColorOptions(solnum, rownum){
+  var text = '';
+  for (color in secondary_colors){
+    if (-1 == $.inArray(secondary_colors[color], currentColors[solnum-1])){
+      text += '<option>' + secondary_colors[color] + '</option>';
+    }
+  }
+  return text;
+}
+
+function changeColor(solnum, rownum){
+  var opts = '<option selected = "selected">' + currentColors[solnum - 1][rownum - 1] + '</option>';
+  if(currentColors[solnum - 1][rownum - 1] != "None"){
+    opts += '<option>None</Option>';
+  }
+  opts += getColorOptions(solnum, rownum);
+  var id = buildId(rownum, solnum, "#colors");
+  $(id).empty().append(opts);
+}
+
+function changeAll(){
+  for(var i = 0; i < nsolution; i++){
+    for(var j = 0; j < sol_lens[i]; j++){
+      changeColor(i + 1, j + 1);
+      changePrimary(i + 1, j + 1);
+      changeSecondary(i + 1, j + 1);
+    }
+  }
+}
+
+function setupAddRowsMinor(i){
+  var nextRow = 1;
+  $("#add_row" + i).click(function(){
+    nextRow++;
+    sol_lens[i-1]++;
+    $("#rowlens").val(JSON.stringify(sol_lens));
+    currentColors[i-1].push("None");
+    currentPrimarys[i-1].push("None");
+    currentSecondarys[i-1].push("None");
+    var content = '<td><select class="form-control" id = "' + buildId( nextRow, i, 'colors')+ '" name = "' + buildId( nextRow, i, 'colors')+ '" ><option>None</option>' + getColorOptions(i, nextRow) + '</select></td><td><select class="form-control" id = "' + buildId( nextRow, i, 'primary') + '" name = "' + buildId( nextRow, i, 'primary') + '" ><option>None</option></select></td><td><select class="form-control" id = "' + buildId( nextRow, i, 'secondary')+ '" name = "' + buildId( nextRow, i, 'secondary')+ '" ><option>None</option></select></td>'
+    $('#sol'+nextRow+'_' + i).html(content);
+    setupUpdates(nextRow, i);
+
+    $('#soltable' + i).append('<tr id="sol'+(nextRow + 1) +'_' + i+'"></tr>');
+    // printitems();
+  });
+}
+
+function update(rownum, solnum, kind){
+  var oldval;
+  var newval = $(buildId(rownum, solnum, kind)).val();
+  if(kind == "#colors"){
+    oldval = currentColors[solnum-1][rownum-1];
+    currentColors[solnum-1][rownum-1] = newval;
+    if(newval == "None"){
+      currentPrimarys[solnum-1][rownum-1] = "None";
+      currentSecondarys[solnum-1][rownum-1] = "None";
+    }
+  }
+  else if (kind == "#primary"){
+    oldval = currentPrimarys[solnum-1][rownum-1];
+    currentPrimarys[solnum-1][rownum-1] = newval;
+    if(newval == "None"){
+      currentSecondarys[solnum-1][rownum-1] = "None";
+    }
+  }
+  else {
+    currentSecondarys[solnum-1][rownum-1] = newval;
+  }
+  changeAll();
+}
+
+function growArrays(){
+  nsolution += 1;
+  $("#nsol").val(nsolution);
+  sol_lens.push(1);
+  $("#rowlens").val(JSON.stringify(sol_lens));
+  currentColors.push(["None"]);
+  currentPrimarys.push(["None"]);
+  currentSecondarys.push(["None"]);
+}
+
+function setupAddRowsMaster(){
+  growArrays();
+  var nextId = 1; 
+  var content = getContent(nextId);
+  $( "#set" ).append( content ).collapsibleset( "refresh" );
+  $("#add_row").click(function(){
+    growArrays();
+    nextId++;
+    var content = getContent(nextId);
+    $( "#set" ).append( content ).collapsibleset( "refresh" );
+    setupAddRowsMinor(nextId);
+    setupUpdates(1, nextId);
+    
+  });
+  setupAddRowsMinor(nextId);
+  setupUpdates(1, nextId);
+}
+
+function printitems(){
+  for(var i = 0; i < nsolution; i++){
+    console.log("Start" + i);
+    for(var j = 0; j < sol_lens[i]; j ++){
+      console.log(j);
+    }
+  }
+  alert(nsolution);
+  alert(sol_lens);
+}
+
+function setupUpdates(rownum, solnum){
+  $(buildId(rownum, solnum, "#colors")).change(function() {
+    update(rownum, solnum, "#colors");
+  });
+  $(buildId(rownum, solnum, "#primary")).change(function() {
+    update(rownum, solnum, "#primary");
+  });
+  $(buildId(rownum, solnum, "#secondary")).change(function() {
+    update(rownum, solnum, "#secondary");
+  });  
+}
+
+function getContent(nextId){
+  return  "<div data-role='collapsible' id='set" + nextId + "'><h3>Solution " + nextId + "</h3><p><div class='table-responsive'><table class='table table-striped' id = 'soltable" + nextId +"'><thead><tr><th>Excitation </th><th>Primary Antibody</th><th>Secondary Antibody</th></tr></thead><tbody><tr id='sol1_" + nextId + "'><td><select class='form-control' id = '" + buildId( 1, nextId, 'colors') + "' name = '" + buildId( 1, nextId, 'colors') + "'><option>None</option>" + getColorOptions(nextId, 1) + "</select></td><td><select class='form-control' id = '" + buildId( 1, nextId, 'primary') + "' name = '" + buildId( 1, nextId, 'primary') + "'><option>None</option></select></td><td><select class='form-control' id = '" + buildId(1, nextId, 'secondary') + "' name = '" + buildId(1, nextId, 'secondary') + "'><option>None</option></select></td></tr><tr id='sol2_" + nextId +"''></tr></tbody></table><a id='add_row" + nextId +"'  class='btn btn-default pull-right'>Add New Excitation</a></div></p></div>";
+}
+
+function buildId(rownum, solnum, kind){
+  return kind + String(rownum) + "_" + String(solnum);
+}
+
+function saveDataFrames(){
+  var jadf_prim = $('div.dataframe_primary').text();
+  var jadf_sec = $('div.dataframe_secondary').text();
+  primary_data = jQuery.parseJSON(jadf_prim);
+  secondary_data = jQuery.parseJSON(jadf_sec);
+  $.each(primary_data, function(index, element) {
+    console.log(element.Host); 
+  });
+}
+
+function saveVariables(){
+  primary_hosts = {{ data.primary_hosts|tojson }};
+  secondary_hosts = {{ data.secondary_hosts|tojson }};
+  secondary_colors = {{ data.secondary_colors|tojson }};
+  primary_names = {{ data.primary_names|tojson }};
+  secondary_names ={{ data.secondary_names|tojson }}; 
+}
+
+function setupDataTable(){
+  $('#primarytable').DataTable({
+      responsive: true,
+      paging: false,
+    });
+  $('#secondarytable').DataTable({
+    responsive: true,
+    paging: false
+  });
+}
+
+$(document).ready(function() {
+  saveDataFrames();
+  saveVariables();
+  setupDataTable();
+  setupAddRowsMaster();  
+});
+</script>
+
+{% endblock %}
